@@ -13,7 +13,6 @@ import { Swords, Save, Sparkles } from "lucide-react";
  *   constants/rules.ts
  *   logic/compareCards.ts
  *   utils/deckStorage.ts
- *   components/LegacyBadge.tsx
  *   components/CardInput.tsx
  *   components/DeckEditor.tsx
  *   components/BattleMatrix.tsx
@@ -55,9 +54,6 @@ const LEGACY_INFO = {
   邪: { symbol: "邪", en: "Darkness", color: "#2B2B2B" },
   聖: { symbol: "聖", en: "Saint", color: "#F5F5F5" },
 };
-
-// カード本体のLegacy用の選択肢（先頭に未選択の空欄を含む）
-const CARD_LEGACY_OPTIONS = ["", ...LEGACIES];
 
 // Potential Point用の選択肢（未使用を含む）
 const PP_LEGACY_OPTIONS = ["未使用", ...LEGACIES];
@@ -233,20 +229,20 @@ function createEmptyDeck(prefix) {
 const RULE_DEFINITIONS = [
   {
     id: "seiJaVoidLimit",
-    label: "聖・邪・Voidの合計は1デッキ3枚まで（Voidは1枚まで）",
+    label: "聖・邪・Voidは1デッキ合計3枚（Void1枚）",
     defaultEnabled: true,
     evaluate: (deck) => {
       const count = deck.filter((c) => c.legacy === "聖" || c.legacy === "邪" || c.hasVoid).length;
-      return { ok: count <= 3, text: `聖・邪・Void 合計 ${count}/3枚` };
+      return { ok: count <= 3, text: `${count}/3` };
     },
   },
   {
     id: "mpTotalLimit",
-    label: "1デッキのMonster Pride合計は15以下",
+    label: "MP合計は1デッキ15以下",
     defaultEnabled: true,
     evaluate: (deck) => {
       const total = deck.reduce((sum, c) => sum + c.monsterPride, 0);
-      return { ok: total <= 15, text: `Monster Pride合計 ${total}/15` };
+      return { ok: total <= 15, text: `${total}/15` };
     },
   },
 ];
@@ -294,23 +290,6 @@ function persistSavedDecks(list) {
     console.error("Failed to persist saved decks:", e);
     return false;
   }
-}
-
-/* -------------------------------------------------------------------------
- * [components/LegacyBadge.tsx] 相当
- * Legacyのテーマカラーを使ったバッジ表示（現在選択中の値の確認用テキスト）。
- * ----------------------------------------------------------------------- */
-function LegacyBadge({ legacyKey }) {
-  const info = ALL_LEGACY_INFO[legacyKey];
-  return (
-    <span
-      className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs whitespace-nowrap"
-      style={{ borderColor: `${info.color}80`, backgroundColor: `${info.color}1F` }}
-    >
-      <span className="w-2.5 h-2.5 rounded-full border border-black/30 shrink-0" style={{ backgroundColor: info.color }} />
-      <span className="text-neutral-100">{info.en ? `${info.symbol} ${info.en}` : info.symbol}</span>
-    </span>
-  );
 }
 
 /* -------------------------------------------------------------------------
@@ -371,8 +350,8 @@ function CardInput({ card, index, onChange, panelBorder }) {
   // Voidを選択してもカードの配色は変化させない（識別はヘッダーの「V」バッジのみで行う）。
   const legacyColor = card.legacy ? LEGACY_INFO[card.legacy].color : null;
   const panelClassName = legacyColor
-    ? "rounded-xl border p-2.5 sm:p-3 space-y-3 transition-colors"
-    : `rounded-xl border p-2.5 sm:p-3 space-y-3 transition-colors ${panelBorder} bg-neutral-900/60`;
+    ? "rounded-xl border p-2 sm:p-3 space-y-2 transition-colors"
+    : `rounded-xl border p-2 sm:p-3 space-y-2 transition-colors ${panelBorder} bg-neutral-900/60`;
   const panelStyle = legacyColor
     ? { borderColor: `${legacyColor}99`, backgroundColor: `${legacyColor}14` }
     : undefined;
@@ -393,49 +372,54 @@ function CardInput({ card, index, onChange, panelBorder }) {
         </label>
       </div>
 
-      {/* Legacy / Monster Pride：同じ行に並べて表示 */}
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="block text-xs text-neutral-500 mb-1">Legacy</label>
-          <select
-            value={card.legacy}
-            onChange={(e) => handleFieldChange("legacy", e.target.value)}
-            className="w-full bg-neutral-950/70 border border-neutral-700 focus:border-amber-400 outline-none rounded-lg px-2 py-1.5 text-sm text-neutral-100"
-          >
-            {CARD_LEGACY_OPTIONS.map((l) => (
-              <option key={l || "blank"} value={l}>
-                {ALL_LEGACY_INFO[l].en ? `${ALL_LEGACY_INFO[l].symbol} ${ALL_LEGACY_INFO[l].en}` : ALL_LEGACY_INFO[l].symbol}
-              </option>
-            ))}
-          </select>
-          <div className="mt-1">
-            <LegacyBadge legacyKey={card.legacy} />
-          </div>
+      {/* Legacy：1タップで選べる5つの色付き丸ボタン */}
+      <div>
+        <label className="block text-[10px] text-neutral-500 mb-1">Legacy</label>
+        <div className="grid grid-cols-5 gap-1">
+          {LEGACIES.map((l) => {
+            const info = LEGACY_INFO[l];
+            const isActive = card.legacy === l;
+            return (
+              <button
+                type="button"
+                key={l}
+                onClick={() => handleFieldChange("legacy", l)}
+                title={info.en}
+                className={`h-7 rounded-full flex items-center justify-center text-[11px] font-bold transition-all ${
+                  isActive ? "ring-2 ring-amber-400 ring-offset-1 ring-offset-neutral-900 scale-105" : "opacity-40 active:opacity-90"
+                }`}
+                style={{ backgroundColor: info.color, color: LEGACY_CONTRAST[l] }}
+              >
+                {info.symbol}
+              </button>
+            );
+          })}
         </div>
+      </div>
 
-        <div>
-          <label className="block text-xs text-neutral-500 mb-1">Monster Pride</label>
-          <select
-            value={card.monsterPride}
-            onChange={(e) => handleFieldChange("monsterPride", Number(e.target.value))}
-            className="w-full bg-neutral-950/70 border border-neutral-700 focus:border-amber-400 outline-none rounded-lg px-2 py-1.5 text-sm"
-          >
-            {MONSTER_PRIDE_OPTIONS.map((mp) => (
-              <option key={mp} value={mp}>
-                {MONSTER_PRIDE_LABELS[mp]}
-              </option>
-            ))}
-          </select>
-          <div className="mt-1 text-sm leading-none" title={`Monster Pride ${card.monsterPride}`}>
-            {starsForMonsterPride(card.monsterPride)}
-          </div>
+      {/* Monster Pride */}
+      <div>
+        <label className="block text-[10px] text-neutral-500 mb-1">Monster Pride</label>
+        <select
+          value={card.monsterPride}
+          onChange={(e) => handleFieldChange("monsterPride", Number(e.target.value))}
+          className="w-full bg-neutral-950/70 border border-neutral-700 focus:border-amber-400 outline-none rounded-lg px-2 py-1.5 text-sm"
+        >
+          {MONSTER_PRIDE_OPTIONS.map((mp) => (
+            <option key={mp} value={mp}>
+              {MONSTER_PRIDE_LABELS[mp]}
+            </option>
+          ))}
+        </select>
+        <div className="mt-0.5 text-[10px] leading-none" title={`Monster Pride ${card.monsterPride}`}>
+          {starsForMonsterPride(card.monsterPride)}
         </div>
       </div>
 
       {/* Potential Point（最大3枠固定） */}
       <div>
-        <label className="block text-xs text-neutral-500 mb-1.5">Potential Point（最大3）</label>
-        <div className="space-y-2">
+        <label className="block text-[10px] text-neutral-500 mb-1">Potential Point（最大3）</label>
+        <div className="space-y-1.5">
           {card.potentialPoints.map((p, ppIndex) => {
             const disabled = p.legacy === "未使用";
             // 同じカード内の他の枠で使用中のLegacy（未使用は対象外）→ このボタン群では選べないようにする
@@ -444,16 +428,16 @@ function CardInput({ card, index, onChange, panelBorder }) {
               .map((pp) => pp.legacy)
               .filter((l) => l !== "未使用");
             return (
-              <div key={ppIndex} className="flex items-center gap-1.5">
+              <div key={ppIndex} className="flex items-center gap-1">
                 <span
-                  className="w-4 h-4 rounded-full border border-black/30 shrink-0"
+                  className="w-3.5 h-3.5 rounded-full border border-black/30 shrink-0"
                   style={{ backgroundColor: ALL_LEGACY_INFO[p.legacy].color }}
                   title={ALL_LEGACY_INFO[p.legacy].en || ALL_LEGACY_INFO[p.legacy].symbol}
                 />
                 <select
                   value={p.legacy}
                   onChange={(e) => handlePPChange(ppIndex, "legacy", e.target.value)}
-                  className="flex-1 min-w-0 bg-neutral-950/70 border border-neutral-700 focus:border-amber-400 outline-none rounded-lg px-2 py-1.5 text-sm text-neutral-100"
+                  className="flex-1 min-w-0 bg-neutral-950/70 border border-neutral-700 focus:border-amber-400 outline-none rounded-lg px-1.5 py-1 text-xs text-neutral-100"
                 >
                   {PP_LEGACY_OPTIONS.map((l) => (
                     <option key={l} value={l} disabled={l !== "未使用" && usedElsewhere.includes(l)}>
@@ -469,7 +453,7 @@ function CardInput({ card, index, onChange, panelBorder }) {
                   disabled={disabled}
                   placeholder={disabled ? "" : "0"}
                   onChange={(e) => handlePPChange(ppIndex, "value", e.target.value)}
-                  className="w-14 sm:w-16 shrink-0 bg-neutral-950/70 border border-neutral-700 focus:border-amber-400 outline-none rounded-lg px-1.5 py-1.5 text-sm disabled:opacity-40 disabled:cursor-not-allowed placeholder-neutral-600"
+                  className="w-12 sm:w-14 shrink-0 bg-neutral-950/70 border border-neutral-700 focus:border-amber-400 outline-none rounded-lg px-1 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed placeholder-neutral-600"
                 />
               </div>
             );
@@ -492,11 +476,14 @@ const DECK_ACCENTS = {
 function DeckEditor({ title, deck, onChange, accent }) {
   const theme = DECK_ACCENTS[accent];
   return (
-    <section className={`rounded-2xl border ${theme.border} bg-neutral-900/40 p-4 sm:p-5`}>
-      <h2 className={`font-serif text-lg tracking-wide mb-4 ${theme.text}`}>{title}</h2>
-      <div className="space-y-2.5">
+    <section className={`rounded-2xl border ${theme.border} bg-neutral-900/40 p-3 sm:p-4`}>
+      <h2 className={`font-serif text-base sm:text-lg tracking-wide mb-2 ${theme.text}`}>{title}</h2>
+      {/* 5枚を横並び・横スクロールで表示し、片手の親指操作でも入力しやすくする */}
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 snap-x snap-mandatory">
         {deck.map((card, i) => (
-          <CardInput key={card.id} card={card} index={i} onChange={onChange} panelBorder={theme.border} />
+          <div key={card.id} className="shrink-0 w-36 sm:w-44 snap-start">
+            <CardInput card={card} index={i} onChange={onChange} panelBorder={theme.border} />
+          </div>
         ))}
       </div>
     </section>
@@ -531,25 +518,22 @@ function CardHeaderLabel({ card, align }) {
   const alignClass = align === "right" ? "items-end text-right" : "items-center text-center";
 
   return (
-    <div className={`flex flex-col gap-0.5 text-xs leading-tight ${alignClass}`}>
-      <div className="flex items-center gap-1">
+    <div className={`flex flex-col gap-0.5 text-[10px] leading-tight ${alignClass}`}>
+      <div className="flex items-center gap-0.5">
         {card.hasVoid && (
-          <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-fuchsia-600 text-white text-[9px] font-black leading-none shrink-0">
+          <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded bg-fuchsia-600 text-white text-[8px] font-black leading-none shrink-0">
             V
           </span>
         )}
         <span
-          className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold shrink-0"
+          className="w-4 h-4 rounded flex items-center justify-center text-[9px] font-bold shrink-0"
           style={{ backgroundColor: legacyInfo.color, color: LEGACY_CONTRAST[card.legacy] }}
         >
           {legacyInfo.symbol.slice(0, 1)}
         </span>
-        <span className="font-semibold text-neutral-100">{MONSTER_PRIDE_LABELS[card.monsterPride]}</span>
+        <span className="font-semibold text-neutral-100 text-[10px]">{MONSTER_PRIDE_LABELS[card.monsterPride]}</span>
       </div>
-      <div className="text-[10px] leading-none" title={`Monster Pride ${card.monsterPride}`}>
-        {starsForMonsterPride(card.monsterPride)}
-      </div>
-      <div className="text-neutral-500">
+      <div className="text-neutral-500 text-[9px]">
         {ppGroups.length > 0
           ? ppGroups.map((g) => `+${g.value}（${g.legacies.join("、")}）`).join(" ")
           : "PP＋0"}
@@ -612,14 +596,14 @@ function BattleMatrix({ myDeck, oppDeck, matrix }) {
   const finalDraws = completedList.filter((c) => c.cell.winner === "draw").length;
 
   return (
-    <section className="rounded-2xl border border-amber-900/30 bg-neutral-900/40 p-4 sm:p-5">
-      <h2 className="font-serif text-lg tracking-wide mb-4 text-amber-300 flex items-center gap-2">
-        <Swords className="w-5 h-5" />
+    <section className="rounded-2xl border border-amber-900/30 bg-neutral-900/40 p-3 sm:p-5">
+      <h2 className="font-serif text-base sm:text-lg tracking-wide mb-2 sm:mb-4 text-amber-300 flex items-center gap-2">
+        <Swords className="w-4 h-4 sm:w-5 sm:h-5" />
         BATTLE MATRIX
       </h2>
 
       <div className="overflow-x-auto">
-        <table className="border-separate" style={{ borderSpacing: "6px", minWidth: "100%" }}>
+        <table className="border-separate" style={{ borderSpacing: "3px", minWidth: "100%" }}>
           <thead>
             <tr>
               <th className="w-24" />
@@ -627,7 +611,7 @@ function BattleMatrix({ myDeck, oppDeck, matrix }) {
                 <th
                   key={opp.id}
                   className={`font-normal pb-1 align-bottom transition-opacity ${usedCols.has(j) ? "opacity-30 grayscale" : ""}`}
-                  style={{ minWidth: "96px" }}
+                  style={{ minWidth: "62px" }}
                 >
                   <CardHeaderLabel card={opp} align="center" />
                 </th>
@@ -655,7 +639,7 @@ function BattleMatrix({ myDeck, oppDeck, matrix }) {
                     <td
                       key={opp.id}
                       onClick={() => toggleCell(i, j)}
-                      className="relative w-14 h-14 sm:w-16 sm:h-16 p-0 cursor-pointer select-none"
+                      className="relative w-11 h-11 sm:w-14 sm:h-14 p-0 cursor-pointer select-none"
                       title={tooltip}
                     >
                       {/* 色・記号はグレーアウト対象。タップ順バッジはこの外側に重ねるので影響を受けない */}
@@ -666,15 +650,15 @@ function BattleMatrix({ myDeck, oppDeck, matrix }) {
                       >
                         {/* 上部にうっすら光沢を入れて単色ベタ塗りより質感を出す */}
                         <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/25 to-transparent" />
-                        <span className={`relative text-2xl font-black drop-shadow-md ${meta.text}`}>{meta.symbol}</span>
-                        <span className={`relative text-[9px] font-semibold ${meta.text} opacity-90`}>
+                        <span className={`relative text-lg sm:text-2xl font-black drop-shadow-md ${meta.text}`}>{meta.symbol}</span>
+                        <span className={`relative text-[7px] sm:text-[9px] font-semibold ${meta.text} opacity-90`}>
                           {cell.rootCounter ? "RC" : `${cell.selfPower} - ${cell.enemyPower}`}
                         </span>
                       </div>
                       {tapOrder && (
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <span className="px-1.5 py-0.5 rounded-full bg-neutral-950 border-2 border-amber-400 text-amber-300 text-[10px] font-black shadow-lg whitespace-nowrap">
-                            Battle{circledNumber(tapOrder)}
+                          <span className="w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center rounded-full bg-neutral-950 border-2 border-amber-400 text-amber-300 text-[9px] sm:text-[10px] font-black shadow-lg">
+                            {circledNumber(tapOrder)}
                           </span>
                         </div>
                       )}
@@ -789,48 +773,46 @@ function RuleStatusRow({ rule, myDeck, oppDeck }) {
   const myResult = rule.evaluate(myDeck);
   const oppResult = rule.evaluate(oppDeck);
   return (
-    <div className="grid grid-cols-2 gap-2 text-xs mt-1.5">
-      <div
-        className={`rounded-lg border px-3 py-1.5 ${
+    <div className="flex flex-wrap gap-1.5 mt-1">
+      <span
+        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
           myResult.ok ? "border-neutral-700 bg-neutral-950/40 text-neutral-400" : "border-rose-500/60 bg-rose-950/30 text-rose-300"
         }`}
       >
-        MY：{myResult.text}
-        {myResult.ok ? "" : "（違反）"}
-      </div>
-      <div
-        className={`rounded-lg border px-3 py-1.5 ${
+        MY {myResult.text}
+      </span>
+      <span
+        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
           oppResult.ok ? "border-neutral-700 bg-neutral-950/40 text-neutral-400" : "border-rose-500/60 bg-rose-950/30 text-rose-300"
         }`}
       >
-        OPP：{oppResult.text}
-        {oppResult.ok ? "" : "（違反）"}
-      </div>
+        OPP {oppResult.text}
+      </span>
     </div>
   );
 }
 
 function RuleGroup({ title, accentClass, ruleList, rules, onToggleRule, myDeck, oppDeck, dividerTop, checkable = true }) {
   return (
-    <div className={dividerTop ? "pt-4 border-t border-neutral-800/60" : ""}>
-      {title && <h3 className={`font-serif text-sm tracking-wide mb-2 ${accentClass}`}>{title}</h3>}
-      <div className="space-y-3">
+    <div className={dividerTop ? "pt-3 border-t border-neutral-800/60" : ""}>
+      {title && <h3 className={`font-serif text-sm tracking-wide mb-1.5 ${accentClass}`}>{title}</h3>}
+      <div className="space-y-1.5">
         {ruleList.map((rule) => {
           const isActive = checkable ? !!rules[rule.id] : true;
           return (
             <div key={rule.id}>
               {checkable ? (
-                <label className="flex items-start gap-2 text-sm text-neutral-300 cursor-pointer">
+                <label className="flex items-start gap-1.5 text-xs text-neutral-300 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={isActive}
                     onChange={(e) => onToggleRule(rule.id, e.target.checked)}
-                    className="mt-0.5 w-4 h-4 accent-amber-500 shrink-0"
+                    className="mt-0.5 w-3.5 h-3.5 accent-amber-500 shrink-0"
                   />
                   <span>{rule.label}</span>
                 </label>
               ) : (
-                <div className="flex items-start gap-2 text-sm text-neutral-300">
+                <div className="flex items-start gap-1.5 text-xs text-neutral-300">
                   <span className="mt-0.5 text-amber-400">●</span>
                   <span>{rule.label}</span>
                 </div>
@@ -846,7 +828,7 @@ function RuleGroup({ title, accentClass, ruleList, rules, onToggleRule, myDeck, 
 
 function RuleSettings({ rules, onToggleRule, myDeck, oppDeck }) {
   return (
-    <section className="rounded-2xl border border-amber-900/30 bg-neutral-900/40 p-4 sm:p-5">
+    <section className="rounded-2xl border border-amber-900/30 bg-neutral-900/40 p-3 sm:p-4">
       <RuleGroup
         title="BATTLE RULES"
         accentClass="text-amber-300"
@@ -1028,10 +1010,10 @@ function App() {
 
         <RuleSettings rules={rules} onToggleRule={handleToggleRule} myDeck={myDeck} oppDeck={oppDeck} />
 
-        {/* MY DECK / OPPONENT DECK は常に同列（横並び）で表示する。
+        {/* MY DECK / OPPONENT DECK はそれぞれ全幅で表示し、5枚は横スクロールの並びにする。
             それぞれの上に保存・呼込・リセットの操作を配置する（保存先は共通の1つのプール）。*/}
-        <div className="grid grid-cols-2 gap-2 sm:gap-4 md:gap-6 items-start">
-          <div className="space-y-2 sm:space-y-3">
+        <div className="space-y-3">
+          <div className="space-y-2">
             <DeckControls
               label="MY DECK"
               currentDeck={myDeck}
@@ -1043,7 +1025,7 @@ function App() {
             />
             <DeckEditor title="MY DECK" deck={myDeck} onChange={updateMyCard} accent="indigo" />
           </div>
-          <div className="space-y-2 sm:space-y-3">
+          <div className="space-y-2">
             <DeckControls
               label="OPPONENT DECK"
               currentDeck={oppDeck}
