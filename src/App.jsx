@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { Swords, Save, Sparkles, Instagram } from "lucide-react";
+import { Swords, Save, Sparkles } from "lucide-react";
 
 // フィードバック導線用リンク。★自分のInstagramアカウントURLに書き換えてください★
 const FEEDBACK_INSTAGRAM_URL = "https://www.instagram.com/_bayesr/";
@@ -1082,8 +1082,7 @@ function App() {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-fuchsia-500/40 text-fuchsia-300 text-xs font-semibold hover:bg-fuchsia-500/10 transition-colors"
           >
-            <Instagram className="w-3.5 h-3.5" />
-            ご意見・フィードバックはInstagramまで
+            📷 ご意見・フィードバックはInstagramまで
           </a>
           <p className="text-xs text-neutral-600">© TMC Fan Project — Prototype build</p>
         </footer>
