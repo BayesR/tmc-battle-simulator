@@ -1,8 +1,90 @@
 import React, { useState, useMemo } from "react";
-import { Swords, Save, Sparkles } from "lucide-react";
+import { Swords, Save, Sparkles, Lock } from "lucide-react";
 
 // フィードバック導線用リンク。★自分のInstagramアカウントURLに書き換えてください★
 const FEEDBACK_INSTAGRAM_URL = "https://www.instagram.com/_bayesr/";
+
+/* -------------------------------------------------------------------------
+ * [components/PasswordGate.tsx] 相当
+ * 限定公開中（TOMASON氏の返答待ち・関係者確認中など）のための簡易パスワードゲート。
+ * ★ACCESS_PASSWORDは自分の好きな文字列に書き換えて運用してください★
+ * 強固なセキュリティではなく、あくまで「URLを知らない人が偶然踏んでも中身が見えない」
+ * 程度の簡易的なアクセス制限です（本格的な制限が必要ならVercelのDeployment Protection等を検討）。
+ * 一度正しいパスワードを入力すると、その端末・ブラウザではlocalStorageに記録され、
+ * 次回以降は自動的にスキップされます（ブラウザ・端末が変わると再入力が必要）。
+ * ----------------------------------------------------------------------- */
+const ACCESS_PASSWORD = "yetm"; // ★ここを好きなパスワードに変更してください★
+const ACCESS_STORAGE_KEY = "tmc_access_granted";
+
+function PasswordGate({ children }) {
+  const [granted, setGranted] = useState(() => {
+    try {
+      return localStorage.getItem(ACCESS_STORAGE_KEY) === "true";
+    } catch (e) {
+      return false;
+    }
+  });
+  const [input, setInput] = useState("");
+  const [error, setError] = useState(false);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (input === ACCESS_PASSWORD) {
+      try {
+        localStorage.setItem(ACCESS_STORAGE_KEY, "true");
+      } catch (err) {
+        console.error("Failed to persist access flag:", err);
+      }
+      setGranted(true);
+      setError(false);
+    } else {
+      setError(true);
+    }
+  };
+
+  if (granted) return children;
+
+  return (
+    <div className="min-h-screen bg-neutral-950 text-neutral-100 flex items-center justify-center px-4">
+      <form onSubmit={handleSubmit} className="w-full max-w-xs space-y-4 text-center">
+        <div className="flex justify-center">
+          <div className="w-12 h-12 rounded-full bg-neutral-900 border border-amber-500/30 flex items-center justify-center">
+            <Lock className="w-5 h-5 text-amber-300" />
+          </div>
+        </div>
+        <p className="text-xs tracking-[0.3em] text-amber-500/80">TOMASON MONSTER'S CARD</p>
+        <h1 className="font-serif text-2xl font-bold tracking-widest text-amber-200">TMC BATTLE SIMULATOR</h1>
+        <p className="text-xs text-neutral-500 leading-relaxed">
+          現在このページは限定公開中です。
+          <br />
+          パスワードを入力してください。
+        </p>
+        <div className="space-y-1.5">
+          <input
+            type="password"
+            value={input}
+            onChange={(e) => {
+              setInput(e.target.value);
+              setError(false);
+            }}
+            placeholder="パスワード"
+            autoFocus
+            className={`w-full bg-neutral-900/70 border rounded-lg px-3 py-2.5 text-sm text-center outline-none transition-colors ${
+              error ? "border-rose-500" : "border-neutral-700 focus:border-amber-400"
+            }`}
+          />
+          {error && <p className="text-xs text-rose-400">パスワードが違います</p>}
+        </div>
+        <button
+          type="submit"
+          className="w-full px-3 py-2.5 rounded-lg bg-amber-500/90 hover:bg-amber-400 text-neutral-950 text-sm font-semibold transition-colors"
+        >
+          入る
+        </button>
+      </form>
+    </div>
+  );
+}
 
 /* =========================================================================
  * TMC (TOMASON MONSTER'S CARD) BATTLE SIMULATOR — MVP
@@ -954,7 +1036,7 @@ function DeckControls({ label, currentDeck, savedDecks, onSave, onDelete, onLoad
  * [App.tsx] 相当
  * 状態管理のルート。自分/相手デッキ、対戦ルール、判定結果、保存デッキの読込を統括する。
  * ----------------------------------------------------------------------- */
-function App() {
+function TMCBattleSimulatorApp() {
   const [myDeck, setMyDeck] = useState(() => createEmptyDeck("my"));
   const [oppDeck, setOppDeck] = useState(() => createEmptyDeck("op"));
   const [rules, setRules] = useState(() =>
@@ -1088,6 +1170,18 @@ function App() {
         </footer>
       </div>
     </div>
+  );
+}
+
+/* -------------------------------------------------------------------------
+ * [App.tsx] のエントリーポイント
+ * 実際のシミュレーター本体（TMCBattleSimulatorApp）をPasswordGateでラップして公開する。
+ * ----------------------------------------------------------------------- */
+function App() {
+  return (
+    <PasswordGate>
+      <TMCBattleSimulatorApp />
+    </PasswordGate>
   );
 }
 
