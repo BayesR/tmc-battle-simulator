@@ -1,5 +1,8 @@
 import React, { useState, useMemo } from "react";
-import { Swords, Save, Sparkles } from "lucide-react";
+import { Swords, Save, Sparkles, Instagram } from "lucide-react";
+
+// フィードバック導線用リンク。★自分のInstagramアカウントURLに書き換えてください★
+const FEEDBACK_INSTAGRAM_URL = "https://www.instagram.com/_bayesr/";
 
 /* =========================================================================
  * TMC (TOMASON MONSTER'S CARD) BATTLE SIMULATOR — MVP
@@ -45,6 +48,15 @@ import { Swords, Save, Sparkles } from "lucide-react";
  * ここを変更すればボタン表示・バッジ表示すべてに反映される。
  * ----------------------------------------------------------------------- */
 const LEGACIES = ["環", "愛", "制", "邪", "聖"];
+
+// カードのLegacyを変更した際、Potential Pointの1枠目に自動セットするLegacy。
+// 邪だけは特別に3枠すべて（愛・制・環）を自動セットする（別途ハンドリング）。
+const AUTO_PP_LEGACY_MAP = {
+  環: "愛",
+  愛: "制",
+  制: "環",
+  聖: "邪",
+};
 
 // 記号 / 英語名 / テーマカラー（公式カラー）
 const LEGACY_INFO = {
@@ -300,7 +312,8 @@ function persistSavedDecks(list) {
 function CardInput({ card, index, onChange, panelBorder }) {
   // トップレベルの単純なフィールド更新（legacy / monsterPride / hasVoid）。
   // legacyに「邪」を選んだ場合は、Potential Pointへ自動的に愛・制・環をセットする。
-  // 邪以外のLegacyを選んだ場合は、Potential Pointを全て「未使用」にリセットする。
+  // 環→愛、愛→制、制→環、聖→邪 のように、それ以外のLegacyも1枠目にデフォルトのPP Legacyを自動セットする。
+  // 未選択（空欄）に戻した場合は、Potential Pointを全て「未使用」にリセットする。
   const handleFieldChange = (field, value) => {
     if (field === "legacy") {
       if (value === "邪") {
@@ -310,6 +323,18 @@ function CardInput({ card, index, onChange, panelBorder }) {
             { legacy: "愛", value: "" },
             { legacy: "制", value: "" },
             { legacy: "環", value: "" },
+          ],
+        });
+        return;
+      }
+      const defaultPPLegacy = AUTO_PP_LEGACY_MAP[value];
+      if (defaultPPLegacy) {
+        onChange(index, {
+          legacy: value,
+          potentialPoints: [
+            { legacy: defaultPPLegacy, value: "" },
+            createEmptyPotentialPoint(),
+            createEmptyPotentialPoint(),
           ],
         });
         return;
@@ -1000,12 +1025,14 @@ function App() {
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100">
       <div className="max-w-5xl mx-auto px-4 py-6 sm:py-10 space-y-6">
-        <header className="text-center space-y-1">
+        <header className="text-center space-y-2">
           <p className="text-xs tracking-[0.3em] text-amber-500/80">TOMASON MONSTER'S CARD</p>
           <h1 className="font-serif text-3xl sm:text-4xl font-bold tracking-widest text-amber-200">
             TMC BATTLE SIMULATOR
           </h1>
-          <p className="text-xs text-neutral-500">全相対戦結果シミュレーター（MVP）</p>
+          <span className="inline-block px-3 py-1 rounded-full border border-neutral-600 text-[10px] tracking-[0.2em] text-neutral-400">
+            UNOFFICIAL FAN-MADE ・ BETA
+          </span>
         </header>
 
         <RuleSettings rules={rules} onToggleRule={handleToggleRule} myDeck={myDeck} oppDeck={oppDeck} />
@@ -1043,8 +1070,22 @@ function App() {
 
         <BattleMatrix myDeck={myDeck} oppDeck={oppDeck} matrix={matrix} />
 
-        <footer className="text-center text-xs text-neutral-600 pt-2 pb-4">
-          © TMC Project — Prototype build
+        <footer className="text-center pt-4 pb-4 space-y-3">
+          <p className="max-w-md mx-auto text-[11px] leading-relaxed text-neutral-500 px-4">
+            本ツールは「TOMASON MONSTER'S CARD（TMC）」のファンによる非公式の対戦シミュレーターです。
+            公式・運営元・TOMASON氏とは一切関係ありません。カードのアートワーク等の画像データは
+            使用しておらず、色と記号のみで表現しています。ゲームバランスの参考用としてご利用ください。
+          </p>
+          <a
+            href={FEEDBACK_INSTAGRAM_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-fuchsia-500/40 text-fuchsia-300 text-xs font-semibold hover:bg-fuchsia-500/10 transition-colors"
+          >
+            <Instagram className="w-3.5 h-3.5" />
+            ご意見・フィードバックはInstagramまで
+          </a>
+          <p className="text-xs text-neutral-600">© TMC Fan Project — Prototype build</p>
         </footer>
       </div>
     </div>
