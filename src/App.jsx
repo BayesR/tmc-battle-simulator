@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from "react";
-import { Swords, Save, Sparkles, Lock } from "lucide-react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { Swords, Save, Sparkles, Lock, ChevronRight } from "lucide-react";
 
 // フィードバック導線用リンク。★自分のInstagramアカウントURLに書き換えてください★
 const FEEDBACK_INSTAGRAM_URL = "https://www.instagram.com/_bayesr/";
@@ -387,6 +387,43 @@ function persistSavedDecks(list) {
 }
 
 /* -------------------------------------------------------------------------
+ * [hooks/useHorizontalScrollFade.ts] 相当
+ * 横スクロール可能な要素で「まだ右（または左）に続きがある」ことを検知するフック。
+ * BATTLE MATRIXやデッキのカード列など、横スクロールが発生しうる箇所で共通利用する。
+ * スクロール量を見て端に到達したらフェード表示を消すことで、
+ * 「スクロールできるのに気づかれない」問題と「スクロールし切ったのにヒントが残る」問題の両方を防ぐ。
+ * ----------------------------------------------------------------------- */
+function useHorizontalScrollFade(deps = []) {
+  const ref = useRef(null);
+  const [showLeftFade, setShowLeftFade] = useState(false);
+  const [showRightFade, setShowRightFade] = useState(false);
+
+  const updateFade = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    // 4px程度の誤差は「端に到達した」とみなす（サブピクセルの丸め対策）
+    setShowLeftFade(scrollLeft > 4);
+    setShowRightFade(scrollLeft + clientWidth < scrollWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    updateFade();
+    const el = ref.current;
+    if (!el) return undefined;
+    el.addEventListener("scroll", updateFade, { passive: true });
+    window.addEventListener("resize", updateFade);
+    return () => {
+      el.removeEventListener("scroll", updateFade);
+      window.removeEventListener("resize", updateFade);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [updateFade, ...deps]);
+
+  return { ref, showLeftFade, showRightFade };
+}
+
+/* -------------------------------------------------------------------------
  * [components/CardInput.tsx] 相当
  * 1枚のカードの入力UI（Legacy / Monster Pride / Potential Point×3 / Void）
  * Legacyはプルダウンではなく色付きボタンで選択する。
@@ -582,16 +619,37 @@ const DECK_ACCENTS = {
 
 function DeckEditor({ title, deck, onChange, accent }) {
   const theme = DECK_ACCENTS[accent];
+  // カードの枚数（通常5枚固定）が変わることは基本ないが、保存デッキ呼込等でも再計算されるよう deck.length を依存に含める
+  const { ref: scrollRef, showLeftFade, showRightFade } = useHorizontalScrollFade([deck.length]);
+
   return (
     <section className={`rounded-2xl border ${theme.border} bg-neutral-900/40 p-3 sm:p-4`}>
-      <h2 className={`font-serif text-base sm:text-lg tracking-wide mb-2 ${theme.text}`}>{title}</h2>
+      <div className="flex items-center justify-between mb-2">
+        <h2 className={`font-serif text-base sm:text-lg tracking-wide ${theme.text}`}>{title}</h2>
+        {/* 右にまだカードが隠れている間だけ「スワイプ」ヒントを表示し、気づきやすくする */}
+        {showRightFade && (
+          <span className="flex items-center gap-0.5 text-[10px] text-neutral-500 animate-pulse">
+            スワイプ
+            <ChevronRight className="w-3 h-3" />
+          </span>
+        )}
+      </div>
       {/* 5枚を横並び・横スクロールで表示し、片手の親指操作でも入力しやすくする */}
-      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 snap-x snap-mandatory">
-        {deck.map((card, i) => (
-          <div key={card.id} className="shrink-0 w-36 sm:w-44 snap-start">
-            <CardInput card={card} index={i} onChange={onChange} panelBorder={theme.border} />
-          </div>
-        ))}
+      <div className="relative">
+        <div ref={scrollRef} className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 snap-x snap-mandatory">
+          {deck.map((card, i) => (
+            <div key={card.id} className="shrink-0 w-36 sm:w-44 snap-start">
+              <CardInput card={card} index={i} onChange={onChange} panelBorder={theme.border} />
+            </div>
+          ))}
+        </div>
+        {/* 左右の端に「まだ続きがある」ことを示す薄いグラデーション。端までスクロールすると自然に消える */}
+        {showLeftFade && (
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-neutral-900 to-transparent opacity-90 rounded-l-xl" />
+        )}
+        {showRightFade && (
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-neutral-900 to-transparent opacity-90 rounded-r-xl" />
+        )}
       </div>
     </section>
   );
@@ -659,6 +717,8 @@ function BattleMatrix({ myDeck, oppDeck, matrix }) {
   // タップした組み合わせ（自分×相手）を「対戦済み」としてグレーアウトし、タップした順番も記録する。
   // 配列なので、タップした順序＝インデックスがそのまま「Battle①」等の表示に使える。
   const [completedOrder, setCompletedOrder] = useState([]);
+  // マトリクスは5列すべてが画面幅に収まらない端末があるため、横スクロールの有無をフェードで可視化する
+  const { ref: matrixScrollRef, showLeftFade, showRightFade } = useHorizontalScrollFade([myDeck.length, oppDeck.length]);
 
   const toggleCell = (i, j) => {
     setCompletedOrder((prev) => {
@@ -704,36 +764,49 @@ function BattleMatrix({ myDeck, oppDeck, matrix }) {
 
   return (
     <section className="rounded-2xl border border-amber-900/30 bg-neutral-900/40 p-3 sm:p-5">
-      <h2 className="font-serif text-base sm:text-lg tracking-wide mb-2 sm:mb-4 text-amber-300 flex items-center gap-2">
-        <Swords className="w-4 h-4 sm:w-5 sm:h-5" />
-        BATTLE MATRIX
-      </h2>
+      <div className="flex items-center justify-between mb-2 sm:mb-4">
+        <h2 className="font-serif text-base sm:text-lg tracking-wide text-amber-300 flex items-center gap-2">
+          <Swords className="w-4 h-4 sm:w-5 sm:h-5" />
+          BATTLE MATRIX
+        </h2>
+        {/* 5列すべてが画面に収まっていない間だけ「スワイプ」ヒントを表示する */}
+        {showRightFade && (
+          <span className="flex items-center gap-0.5 text-[10px] text-neutral-500 animate-pulse">
+            スワイプ
+            <ChevronRight className="w-3 h-3" />
+          </span>
+        )}
+      </div>
 
-      <div className="overflow-x-auto">
-        <table className="border-separate" style={{ borderSpacing: "3px", minWidth: "100%" }}>
-          <thead>
-            <tr>
-              <th className="w-24" />
-              {oppDeck.map((opp, j) => (
-                <th
-                  key={opp.id}
-                  className={`font-normal pb-1 align-bottom transition-opacity ${usedCols.has(j) ? "opacity-30 grayscale" : ""}`}
-                  style={{ minWidth: "62px" }}
-                >
-                  <CardHeaderLabel card={opp} align="center" />
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {myDeck.map((my, i) => (
-              <tr key={my.id}>
-                <th
-                  className={`font-normal pr-2 whitespace-nowrap align-middle transition-opacity ${usedRows.has(i) ? "opacity-30 grayscale" : ""}`}
-                >
-                  <CardHeaderLabel card={my} align="right" />
-                </th>
-                {oppDeck.map((opp, j) => {
+      <div className="relative">
+        <div ref={matrixScrollRef} className="overflow-x-auto">
+          <table className="border-separate" style={{ borderSpacing: "3px", minWidth: "100%" }}>
+            <thead>
+              <tr>
+                {/* 1列目（自分のカード見出し）は横スクロール中も常に見えるよう固定する */}
+                <th className="w-24 sticky left-0 z-20 bg-neutral-900" />
+                {oppDeck.map((opp, j) => (
+                  <th
+                    key={opp.id}
+                    className={`font-normal pb-1 align-bottom transition-opacity ${usedCols.has(j) ? "opacity-30 grayscale" : ""}`}
+                    style={{ minWidth: "62px" }}
+                  >
+                    <CardHeaderLabel card={opp} align="center" />
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {myDeck.map((my, i) => (
+                <tr key={my.id}>
+                  <th
+                    className={`font-normal pr-2 whitespace-nowrap align-middle transition-opacity sticky left-0 z-20 bg-neutral-900 ${
+                      usedRows.has(i) ? "opacity-30 grayscale" : ""
+                    }`}
+                  >
+                    <CardHeaderLabel card={my} align="right" />
+                  </th>
+                  {oppDeck.map((opp, j) => {
                   const cell = matrix[i][j];
                   const meta = RESULT_META[WINNER_TO_RESULT[cell.winner]];
                   const key = `${i}-${j}`;
@@ -776,6 +849,14 @@ function BattleMatrix({ myDeck, oppDeck, matrix }) {
             ))}
           </tbody>
         </table>
+        </div>
+        {/* 左右の端に「まだ続きがある」ことを示す薄いグラデーション。1列目はstickyなので左フェードは列の右側から始まる */}
+        {showLeftFade && (
+          <div className="pointer-events-none absolute inset-y-0 left-24 w-6 bg-gradient-to-r from-neutral-900 to-transparent opacity-90 z-10" />
+        )}
+        {showRightFade && (
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-neutral-900 to-transparent opacity-90 z-10" />
+        )}
       </div>
 
       {/* タップして「対戦済み」にした組み合わせの結果一覧をマトリクスの下に表示する（タップした順） */}
