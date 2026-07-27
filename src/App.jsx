@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { Swords, Save, Sparkles, Lock, ChevronRight } from "lucide-react";
+import { Swords, Save, Sparkles, Lock, ChevronRight, ChevronDown, ShieldCheck, AlertTriangle } from "lucide-react";
 
 // フィードバック導線用リンク。★自分のInstagramアカウントURLに書き換えてください★
 const FEEDBACK_INSTAGRAM_URL = "https://www.instagram.com/_bayesr/";
@@ -327,7 +327,7 @@ const RULE_DEFINITIONS = [
     defaultEnabled: true,
     evaluate: (deck) => {
       const count = deck.filter((c) => c.legacy === "聖" || c.legacy === "邪" || c.hasVoid).length;
-      return { ok: count <= 3, text: `${count}/3` };
+      return { ok: count <= 3, value: count, max: 3, text: `${count}/3` };
     },
   },
   {
@@ -336,7 +336,7 @@ const RULE_DEFINITIONS = [
     defaultEnabled: true,
     evaluate: (deck) => {
       const total = deck.reduce((sum, c) => sum + c.monsterPride, 0);
-      return { ok: total <= 15, text: `${total}/15` };
+      return { ok: total <= 15, value: total, max: 15, text: `${total}/15` };
     },
   },
 ];
@@ -955,77 +955,137 @@ function SummaryCard({ wins, losses, draws, winRate }) {
 /* -------------------------------------------------------------------------
  * [components/RuleSettings.tsx] 相当
  * 対戦ルール（デッキ構築制限）をチェックボックスで選択できるようにする。
- * ONのルールについては、現在の自分/相手デッキがルールを満たしているかを表示する。
+ * ONのルールについては、現在の自分/相手デッキがルールを満たしているかを
+ * ゲージ（棒グラフ）で視覚化し、数字を読まなくても余裕度が一目でわかるようにする。
+ * 普段は折りたたんでおき、ヘッダーのサマリーバッジ（OK／要確認）だけで
+ * 全体の状態を把握できるようにする。
  * ----------------------------------------------------------------------- */
-function RuleStatusRow({ rule, myDeck, oppDeck }) {
-  const myResult = rule.evaluate(myDeck);
-  const oppResult = rule.evaluate(oppDeck);
-  return (
-    <div className="flex flex-wrap gap-1.5 mt-1">
-      <span
-        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-          myResult.ok ? "border-neutral-700 bg-neutral-950/40 text-neutral-400" : "border-rose-500/60 bg-rose-950/30 text-rose-300"
-        }`}
-      >
-        MY {myResult.text}
-      </span>
-      <span
-        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-          oppResult.ok ? "border-neutral-700 bg-neutral-950/40 text-neutral-400" : "border-rose-500/60 bg-rose-950/30 text-rose-300"
-        }`}
-      >
-        OPP {oppResult.text}
-      </span>
-    </div>
-  );
-}
 
-function RuleGroup({ title, accentClass, ruleList, rules, onToggleRule, myDeck, oppDeck, dividerTop, checkable = true }) {
+// MY/OPPそれぞれの現在値を棒グラフ（ゲージ）で表示するチップ
+function RuleGaugeChip({ label, result, accent }) {
+  const pct = Math.min(100, Math.round((result.value / result.max) * 100));
+  const barColor = result.ok ? (accent === "my" ? "bg-indigo-400" : "bg-rose-400") : "bg-rose-500";
+  // ゲージの目盛りは「値の刻み」ではなく「バーを3等分」する方式にする。
+  // こうすることで上限が3でも15でも常に2本の目盛り線で均等に分割され、見た目の統一感が出る。
+  const segments = 3;
+  const ticks = [];
+  for (let i = 1; i < segments; i += 1) {
+    ticks.push((i / segments) * 100);
+  }
   return (
-    <div className={dividerTop ? "pt-3 border-t border-neutral-800/60" : ""}>
-      {title && <h3 className={`font-serif text-sm tracking-wide mb-1.5 ${accentClass}`}>{title}</h3>}
-      <div className="space-y-1.5">
-        {ruleList.map((rule) => {
-          const isActive = checkable ? !!rules[rule.id] : true;
-          return (
-            <div key={rule.id}>
-              {checkable ? (
-                <label className="flex items-start gap-1.5 text-xs text-neutral-300 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isActive}
-                    onChange={(e) => onToggleRule(rule.id, e.target.checked)}
-                    className="mt-0.5 w-3.5 h-3.5 accent-amber-500 shrink-0"
-                  />
-                  <span>{rule.label}</span>
-                </label>
-              ) : (
-                <div className="flex items-start gap-1.5 text-xs text-neutral-300">
-                  <span className="mt-0.5 text-amber-400">●</span>
-                  <span>{rule.label}</span>
-                </div>
-              )}
-              {isActive && <RuleStatusRow rule={rule} myDeck={myDeck} oppDeck={oppDeck} />}
-            </div>
-          );
-        })}
+    <div
+      className={`rounded-lg border px-2 py-1.5 transition-colors ${
+        result.ok ? "border-neutral-800 bg-neutral-950/30" : "border-rose-500/60 bg-rose-950/20"
+      }`}
+    >
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[9px] font-bold tracking-widest text-neutral-500">{label}</span>
+        <span className={`text-[10px] font-bold ${result.ok ? "text-neutral-400" : "text-rose-300"}`}>{result.text}</span>
+      </div>
+      <div className="relative h-2 rounded-full bg-neutral-800 overflow-hidden">
+        <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+        {/* 目盛り線：塗り部分の上からでも見えるよう半透明の暗い縦線を重ねる */}
+        {ticks.map((leftPct) => (
+          <div key={leftPct} className="absolute top-0 bottom-0 w-px bg-black/30" style={{ left: `${leftPct}%` }} />
+        ))}
       </div>
     </div>
   );
 }
 
+// 1ルール分のカード：チェックボックス＋（ONの場合）MY/OPPのゲージを横並びで表示
+function RuleCard({ rule, isActive, onToggleRule, myDeck, oppDeck }) {
+  const myResult = rule.evaluate(myDeck);
+  const oppResult = rule.evaluate(oppDeck);
+  const hasViolation = isActive && (!myResult.ok || !oppResult.ok);
+  return (
+    <div
+      className={`rounded-xl border p-2.5 transition-colors ${
+        hasViolation ? "border-rose-500/40" : "border-neutral-800"
+      }`}
+    >
+      <label className="flex items-start gap-1.5 text-xs text-neutral-300 cursor-pointer mb-2 last:mb-0">
+        <input
+          type="checkbox"
+          checked={isActive}
+          onChange={(e) => onToggleRule(rule.id, e.target.checked)}
+          className="mt-0.5 w-3.5 h-3.5 accent-amber-500 shrink-0"
+        />
+        <span>{rule.label}</span>
+      </label>
+      {isActive && (
+        <div className="grid grid-cols-2 gap-1.5">
+          <RuleGaugeChip label="MY" result={myResult} accent="my" />
+          <RuleGaugeChip label="OPP" result={oppResult} accent="opp" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RuleSettings({ rules, onToggleRule, myDeck, oppDeck }) {
+  // 普段は折りたたんでおき、ヘッダーのサマリーバッジで全体状態を把握できるようにする
+  const [collapsed, setCollapsed] = useState(true);
+
+  const activeResults = RULE_DEFINITIONS.filter((rule) => rules[rule.id]).map((rule) => ({
+    my: rule.evaluate(myDeck),
+    opp: rule.evaluate(oppDeck),
+  }));
+  const activeCount = activeResults.length;
+  const hasViolation = activeResults.some((r) => !r.my.ok || !r.opp.ok);
+
   return (
     <section className="rounded-2xl border border-amber-900/30 bg-neutral-900/40 p-3 sm:p-4">
-      <RuleGroup
-        title="BATTLE RULES"
-        accentClass="text-amber-300"
-        ruleList={RULE_DEFINITIONS}
-        rules={rules}
-        onToggleRule={onToggleRule}
-        myDeck={myDeck}
-        oppDeck={oppDeck}
-      />
+      <button
+        type="button"
+        onClick={() => setCollapsed((prev) => !prev)}
+        className="w-full flex items-center justify-between gap-2"
+        aria-expanded={!collapsed}
+      >
+        <h2 className="font-serif text-base sm:text-lg tracking-wide text-amber-300 flex items-center gap-2 shrink-0">
+          <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5" />
+          BATTLE RULES
+        </h2>
+        <div className="flex items-center gap-2">
+          {/* 折りたたみ中でもここだけで全体状態がわかるサマリーバッジ */}
+          <span
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap ${
+              activeCount === 0
+                ? "border-neutral-700 text-neutral-500"
+                : hasViolation
+                ? "border-rose-500/60 bg-rose-950/30 text-rose-300"
+                : "border-emerald-500/40 bg-emerald-950/20 text-emerald-300"
+            }`}
+          >
+            {activeCount === 0 ? (
+              "ルール未設定"
+            ) : hasViolation ? (
+              <>
+                <AlertTriangle className="w-3 h-3" />
+                要確認
+              </>
+            ) : (
+              "OK"
+            )}
+          </span>
+          <ChevronDown className={`w-4 h-4 text-neutral-500 transition-transform ${collapsed ? "" : "rotate-180"}`} />
+        </div>
+      </button>
+
+      {!collapsed && (
+        <div className="mt-3 space-y-2">
+          {RULE_DEFINITIONS.map((rule) => (
+            <RuleCard
+              key={rule.id}
+              rule={rule}
+              isActive={!!rules[rule.id]}
+              onToggleRule={onToggleRule}
+              myDeck={myDeck}
+              oppDeck={oppDeck}
+            />
+          ))}
+        </div>
+      )}
     </section>
   );
 }
