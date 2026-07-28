@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { Swords, Save, Sparkles, Lock, ChevronRight, ChevronDown, ShieldCheck, AlertTriangle } from "lucide-react";
+import { Swords, Save, Sparkles, Lock, ChevronRight, ChevronDown, ShieldCheck, AlertTriangle, ArrowUpDown } from "lucide-react";
 
 // フィードバック導線用リンク。★自分のInstagramアカウントURLに書き換えてください★
 const FEEDBACK_INSTAGRAM_URL = "https://www.instagram.com/_bayesr/";
@@ -713,6 +713,45 @@ function circledNumber(n) {
   return CIRCLED_NUMBERS[n - 1] || `(${n})`;
 }
 
+// BATTLE MATRIXの色・記号の意味を常時表示する凡例。
+// スマホはホバーできずツールチップに気づきにくいため、常設表示にして初見の人にも伝わるようにする。
+function BattleMatrixLegend() {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mb-3 text-[10px] text-neutral-400">
+      <span className="flex items-center gap-1">
+        <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-gradient-to-br from-sky-400 via-sky-500 to-sky-700 text-white font-black text-[9px]">
+          ○
+        </span>
+        勝利
+      </span>
+      <span className="flex items-center gap-1">
+        <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-gradient-to-br from-rose-400 via-rose-500 to-rose-700 text-white font-black text-[9px]">
+          ×
+        </span>
+        敗北
+      </span>
+      <span className="flex items-center gap-1">
+        <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-gradient-to-br from-neutral-400 via-neutral-500 to-neutral-700 text-white font-black text-[9px]">
+          △
+        </span>
+        引分
+      </span>
+      <span className="flex items-center gap-1">
+        <span className="inline-flex items-center justify-center w-5 h-5 rounded-lg border-2 border-neutral-700 bg-neutral-800 ring-2 ring-amber-300 ring-offset-1 ring-offset-neutral-900 text-amber-200 font-black text-[7px]">
+          RC
+        </span>
+        Root Counter
+      </span>
+      <span className="flex items-center gap-1">
+        <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-fuchsia-600 text-white font-black text-[8px]">
+          V
+        </span>
+        Void
+      </span>
+    </div>
+  );
+}
+
 function BattleMatrix({ myDeck, oppDeck, matrix }) {
   // タップした組み合わせ（自分×相手）を「対戦済み」としてグレーアウトし、タップした順番も記録する。
   // 配列なので、タップした順序＝インデックスがそのまま「Battle①」等の表示に使える。
@@ -777,6 +816,8 @@ function BattleMatrix({ myDeck, oppDeck, matrix }) {
           </span>
         )}
       </div>
+
+      <BattleMatrixLegend />
 
       <div className="relative">
         <div ref={matrixScrollRef} className="overflow-x-auto">
@@ -1232,6 +1273,12 @@ function TMCBattleSimulatorApp() {
   const handleResetMyDeck = () => setMyDeck(createEmptyDeck("my"));
   const handleResetOppDeck = () => setOppDeck(createEmptyDeck("op"));
 
+  // MY DECKとOPPONENT DECKの中身をまるごと入れ替える（同じ組み合わせを逆視点でも見たい時用）
+  const handleSwapDecks = () => {
+    setMyDeck(oppDeck);
+    setOppDeck(myDeck);
+  };
+
   // 5x5マトリクスと集計結果を一元計算（BattleMatrix / SummaryCardで共有）
   // compareCardsは { winner, selfPower, enemyPower, rootCounter, voidActivated } を返す
   const { matrix, wins, losses, draws, winRate } = useMemo(() => {
@@ -1275,6 +1322,20 @@ function TMCBattleSimulatorApp() {
             />
             <DeckEditor title="MY DECK" deck={myDeck} onChange={updateMyCard} accent="indigo" />
           </div>
+
+          {/* 同じ組み合わせを逆視点からも見たい時、入力し直さず1タップで自分と相手のデッキを入れ替える */}
+          <div className="flex justify-center">
+            <button
+              type="button"
+              onClick={handleSwapDecks}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-neutral-700 text-neutral-400 text-[11px] font-semibold hover:bg-neutral-800 hover:text-neutral-200 transition-colors"
+              title="MY DECKとOPPONENT DECKを入れ替える"
+            >
+              <ArrowUpDown className="w-3.5 h-3.5" />
+              MY ⇄ OPPONENT 入れ替え
+            </button>
+          </div>
+
           <div className="space-y-2">
             <DeckControls
               label="OPPONENT DECK"
