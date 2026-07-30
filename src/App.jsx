@@ -145,7 +145,7 @@ const LEGACY_INFO = {
   制: { symbol: "制", en: "Babylon", color: "#F4C542" },
   愛: { symbol: "愛", en: "Love", color: "#FF5FA2" },
   環: { symbol: "環", en: "Nature", color: "#4CAF50" },
-  邪: { symbol: "邪", en: "Darkness", color: "#2B2B2B" },
+  邪: { symbol: "邪", en: "Dark", color: "#2B2B2B" },
   聖: { symbol: "聖", en: "Saint", color: "#F5F5F5" },
 };
 
@@ -717,37 +717,43 @@ function circledNumber(n) {
 // スマホはホバーできずツールチップに気づきにくいため、常設表示にして初見の人にも伝わるようにする。
 function BattleMatrixLegend() {
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mb-3 text-[10px] text-neutral-400">
-      <span className="flex items-center gap-1">
-        <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-gradient-to-br from-sky-400 via-sky-500 to-sky-700 text-white font-black text-[9px]">
-          ○
+    <div className="space-y-1.5 mb-3 text-[10px] text-neutral-400">
+      {/* 1行目：そのマスの勝敗結果（○×△のいずれか1つになる） */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="flex items-center gap-1">
+          <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-gradient-to-br from-sky-400 via-sky-500 to-sky-700 text-white font-black text-[9px]">
+            ○
+          </span>
+          勝利
         </span>
-        勝利
-      </span>
-      <span className="flex items-center gap-1">
-        <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-gradient-to-br from-rose-400 via-rose-500 to-rose-700 text-white font-black text-[9px]">
-          ×
+        <span className="flex items-center gap-1">
+          <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-gradient-to-br from-rose-400 via-rose-500 to-rose-700 text-white font-black text-[9px]">
+            ×
+          </span>
+          敗北
         </span>
-        敗北
-      </span>
-      <span className="flex items-center gap-1">
-        <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-gradient-to-br from-neutral-400 via-neutral-500 to-neutral-700 text-white font-black text-[9px]">
-          △
+        <span className="flex items-center gap-1">
+          <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-gradient-to-br from-neutral-400 via-neutral-500 to-neutral-700 text-white font-black text-[9px]">
+            △
+          </span>
+          引分
         </span>
-        引分
-      </span>
-      <span className="flex items-center gap-1">
-        <span className="inline-flex items-center justify-center w-5 h-5 rounded-lg border-2 border-neutral-700 bg-neutral-800 ring-2 ring-amber-300 ring-offset-1 ring-offset-neutral-900 text-amber-200 font-black text-[7px]">
-          RC
+      </div>
+      {/* 2行目：勝敗とは別軸の補足情報（結果に対して追加で発動しうる特殊ルール） */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1.5 border-t border-neutral-800/60">
+        <span className="flex items-center gap-1">
+          <span className="inline-flex items-center justify-center w-5 h-5 rounded-lg border-2 border-neutral-700 bg-neutral-800 ring-2 ring-amber-300 ring-offset-1 ring-offset-neutral-900 text-amber-200 font-black text-[7px]">
+            RC
+          </span>
+          Root Counter
         </span>
-        Root Counter
-      </span>
-      <span className="flex items-center gap-1">
-        <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-fuchsia-600 text-white font-black text-[8px]">
-          V
+        <span className="flex items-center gap-1">
+          <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-fuchsia-600 text-white font-black text-[8px]">
+            V
+          </span>
+          Void
         </span>
-        Void
-      </span>
+      </div>
     </div>
   );
 }
