@@ -1,90 +1,8 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { Swords, Save, Sparkles, Lock, ChevronRight, ChevronDown, ShieldCheck, AlertTriangle, ArrowUpDown } from "lucide-react";
+import { Swords, Save, Sparkles, ChevronRight, ChevronDown, ShieldCheck, AlertTriangle, ArrowUpDown } from "lucide-react";
 
 // フィードバック導線用リンク。★自分のInstagramアカウントURLに書き換えてください★
 const FEEDBACK_INSTAGRAM_URL = "https://www.instagram.com/_bayesr/";
-
-/* -------------------------------------------------------------------------
- * [components/PasswordGate.tsx] 相当
- * 限定公開中（TOMASON氏の返答待ち・関係者確認中など）のための簡易パスワードゲート。
- * ★ACCESS_PASSWORDは自分の好きな文字列に書き換えて運用してください★
- * 強固なセキュリティではなく、あくまで「URLを知らない人が偶然踏んでも中身が見えない」
- * 程度の簡易的なアクセス制限です（本格的な制限が必要ならVercelのDeployment Protection等を検討）。
- * 一度正しいパスワードを入力すると、その端末・ブラウザではlocalStorageに記録され、
- * 次回以降は自動的にスキップされます（ブラウザ・端末が変わると再入力が必要）。
- * ----------------------------------------------------------------------- */
-const ACCESS_PASSWORD = "yetm"; // ★ここを好きなパスワードに変更してください★
-const ACCESS_STORAGE_KEY = "tmc_access_granted";
-
-function PasswordGate({ children }) {
-  const [granted, setGranted] = useState(() => {
-    try {
-      return localStorage.getItem(ACCESS_STORAGE_KEY) === "true";
-    } catch (e) {
-      return false;
-    }
-  });
-  const [input, setInput] = useState("");
-  const [error, setError] = useState(false);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (input === ACCESS_PASSWORD) {
-      try {
-        localStorage.setItem(ACCESS_STORAGE_KEY, "true");
-      } catch (err) {
-        console.error("Failed to persist access flag:", err);
-      }
-      setGranted(true);
-      setError(false);
-    } else {
-      setError(true);
-    }
-  };
-
-  if (granted) return children;
-
-  return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100 flex items-center justify-center px-4">
-      <form onSubmit={handleSubmit} className="w-full max-w-xs space-y-4 text-center">
-        <div className="flex justify-center">
-          <div className="w-12 h-12 rounded-full bg-neutral-900 border border-amber-500/30 flex items-center justify-center">
-            <Lock className="w-5 h-5 text-amber-300" />
-          </div>
-        </div>
-        <p className="text-xs tracking-[0.3em] text-amber-500/80">TOMASON MONSTER'S CARD</p>
-        <h1 className="font-serif text-2xl font-bold tracking-widest text-amber-200">TMC BATTLE SIMULATOR</h1>
-        <p className="text-xs text-neutral-500 leading-relaxed">
-          現在このページは限定公開中です。
-          <br />
-          パスワードを入力してください。
-        </p>
-        <div className="space-y-1.5">
-          <input
-            type="password"
-            value={input}
-            onChange={(e) => {
-              setInput(e.target.value);
-              setError(false);
-            }}
-            placeholder="パスワード"
-            autoFocus
-            className={`w-full bg-neutral-900/70 border rounded-lg px-3 py-2.5 text-sm text-center outline-none transition-colors ${
-              error ? "border-rose-500" : "border-neutral-700 focus:border-amber-400"
-            }`}
-          />
-          {error && <p className="text-xs text-rose-400">パスワードが違います</p>}
-        </div>
-        <button
-          type="submit"
-          className="w-full px-3 py-2.5 rounded-lg bg-amber-500/90 hover:bg-amber-400 text-neutral-950 text-sm font-semibold transition-colors"
-        >
-          入る
-        </button>
-      </form>
-    </div>
-  );
-}
 
 /* =========================================================================
  * TMC (TOMASON MONSTER'S CARD) BATTLE SIMULATOR — MVP
@@ -151,6 +69,10 @@ const LEGACY_INFO = {
 
 // Potential Point用の選択肢（未使用を含む）
 const PP_LEGACY_OPTIONS = ["未使用", ...LEGACIES];
+
+// Potential Pointの数値は1〜3.5の0.5刻みに固定（手入力ではなくプルダウンで選ばせることで、
+// 上限3.5を超える値や刻み外の値が入らないようにする）
+const PP_VALUE_OPTIONS = [1, 1.5, 2, 2.5, 3, 3.5];
 
 // 「未選択」「未使用」を含む全Legacy情報の統合マップ（バッジ表示等で共通利用）
 const ALL_LEGACY_INFO = {
@@ -469,8 +391,9 @@ function CardInput({ card, index, onChange, panelBorder }) {
 
   // Potential Point 1枠分の更新。
   // ・Legacyを「未使用」にする → valueは自動的に0固定(disabled)
-  // ・Legacyを未使用以外にする → valueは空欄('')にリセットし、手入力可能にする
+  // ・Legacyを未使用以外にする → valueは未選択('')にリセットし、プルダウンから選び直す
   // ・同じカード内の他の枠で既に使われているLegacyは選択させない（ボタンをdisabledにしている）
+  // ・valueは1〜3.5の0.5刻みの固定選択肢のみ（手入力ではないため上限3.5を超える値は入力不可）
   const handlePPChange = (ppIndex, field, value) => {
     const nextPPs = card.potentialPoints.map((p, i) => {
       if (i !== ppIndex) return p;
@@ -482,8 +405,7 @@ function CardInput({ card, index, onChange, panelBorder }) {
       }
       if (field === "value") {
         if (value === "") return { ...p, value: "" };
-        const rounded = round1(Math.max(0, Number(value) || 0));
-        return { ...p, value: rounded };
+        return { ...p, value: Number(value) };
       }
       return p;
     });
@@ -589,16 +511,27 @@ function CardInput({ card, index, onChange, panelBorder }) {
                     </option>
                   ))}
                 </select>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.1"
+                <select
                   value={p.value}
                   disabled={disabled}
-                  placeholder={disabled ? "" : "0"}
                   onChange={(e) => handlePPChange(ppIndex, "value", e.target.value)}
-                  className="w-12 sm:w-14 shrink-0 bg-neutral-950/70 border border-neutral-700 focus:border-amber-400 outline-none rounded-lg px-1 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed placeholder-neutral-600"
-                />
+                  className="w-16 sm:w-[4.5rem] shrink-0 bg-neutral-950/70 border border-neutral-700 focus:border-amber-400 outline-none rounded-lg px-1 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {disabled ? (
+                    <option value={0}>0</option>
+                  ) : (
+                    <>
+                      <option value="" disabled>
+                        選択
+                      </option>
+                      {PP_VALUE_OPTIONS.map((v) => (
+                        <option key={v} value={v}>
+                          {v}
+                        </option>
+                      ))}
+                    </>
+                  )}
+                </select>
               </div>
             );
           })}
@@ -1383,14 +1316,10 @@ function TMCBattleSimulatorApp() {
 
 /* -------------------------------------------------------------------------
  * [App.tsx] のエントリーポイント
- * 実際のシミュレーター本体（TMCBattleSimulatorApp）をPasswordGateでラップして公開する。
+ * シミュレーター本体（TMCBattleSimulatorApp）をそのまま公開する。
  * ----------------------------------------------------------------------- */
 function App() {
-  return (
-    <PasswordGate>
-      <TMCBattleSimulatorApp />
-    </PasswordGate>
-  );
+  return <TMCBattleSimulatorApp />;
 }
 
 export default App;
