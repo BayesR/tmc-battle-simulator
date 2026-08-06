@@ -394,7 +394,15 @@ function CardInput({ card, index, onChange, panelBorder }) {
   // ・Legacyを未使用以外にする → valueは未選択('')にリセットし、プルダウンから選び直す
   // ・同じカード内の他の枠で既に使われているLegacyは選択させない（ボタンをdisabledにしている）
   // ・valueは1〜3.5の0.5刻みの固定選択肢のみ（手入力ではないため上限3.5を超える値は入力不可）
+  // ・カード自体のLegacyが「邪」の場合、PP3枠（愛・制・環）は連動して常に同じ数値になる
+  //   （どれか1枠の数値を変えると、他の2枠も自動的に同じ値へ揃う）
   const handlePPChange = (ppIndex, field, value) => {
+    if (field === "value" && card.legacy === "邪") {
+      const nextValue = value === "" ? "" : Number(value);
+      const nextPPs = card.potentialPoints.map((p) => ({ ...p, value: nextValue }));
+      onChange(index, { potentialPoints: nextPPs });
+      return;
+    }
     const nextPPs = card.potentialPoints.map((p, i) => {
       if (i !== ppIndex) return p;
       if (field === "legacy") {
