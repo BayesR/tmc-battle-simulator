@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Swords, Save, Sparkles, ChevronRight, ChevronDown, ShieldCheck, AlertTriangle, ArrowUpDown } from "lucide-react";
+import { Analytics } from "@vercel/analytics/react";
 
 // フィードバック導線用リンク。★自分のInstagramアカウントURLに書き換えてください★
 const FEEDBACK_INSTAGRAM_URL = "https://www.instagram.com/_bayesr/";
@@ -186,7 +187,7 @@ function compareCards(self, enemy) {
     };
   }
 
-  // ② Potential Point：相手のLegacyと一致する枠だけを加算する
+  // ② Potential Point：相手のLegacyと一致する枠だけを��算する
   const selfPPRaw = getMatchingPotentialPoints(self, enemy);
   const enemyPPRaw = getMatchingPotentialPoints(enemy, self);
 
@@ -703,7 +704,7 @@ function BattleMatrix({ myDeck, oppDeck, matrix }) {
   // タップした組み合わせ（自分×相手）を「対戦済み」としてグレーアウトし、タップした順番も記録する。
   // 配列なので、タップした順序＝インデックスがそのまま「Battle①」等の表示に使える。
   const [completedOrder, setCompletedOrder] = useState([]);
-  // マトリクスは5列すべてが画面幅に収まらない端末があるため、横スクロールの有無をフェードで可視化する
+  // ���トリクスは5列すべてが画面幅に収まらない端末があるため、横スクロールの有無をフェードで可視化する
   const { ref: matrixScrollRef, showLeftFade, showRightFade } = useHorizontalScrollFade([myDeck.length, oppDeck.length]);
 
   const toggleCell = (i, j) => {
@@ -1327,7 +1328,12 @@ function TMCBattleSimulatorApp() {
  * シミュレーター本体（TMCBattleSimulatorApp）をそのまま公開する。
  * ----------------------------------------------------------------------- */
 function App() {
-  return <TMCBattleSimulatorApp />;
+  return (
+    <>
+      <TMCBattleSimulatorApp />
+      <Analytics />
+    </>
+  );
 }
 
 export default App;
